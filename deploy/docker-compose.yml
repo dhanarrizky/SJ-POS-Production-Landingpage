@@ -1,0 +1,57 @@
+# Landing page — disinkron CI ke DEPLOY_PATH/landing. Tidak ada port yang dibuka ke host.
+#   landing     : PocketBase + React statis (:8080)
+#   landing-web : nginx milik landing (:8081) <- nginx INFRA mem-proxy spontanjualan.id ke sini
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  landing:
+    image: ghcr.io/${GHCR_OWNER:?GHCR_OWNER must be set}/landing-page:${LANDING_TAG:-latest}
+    container_name: pos_landing
+    restart: unless-stopped
+    environment:
+      PORT: 8080
+    volumes:
+      - landing_pb_data:/pb/pb_data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    logging: *default-logging
+    networks:
+      - pos_network
+
+  landing-web:
+    image: nginx:1.27-alpine
+    container_name: pos_landing_web
+    restart: unless-stopped
+    depends_on:
+      landing:
+        condition: service_healthy
+    environment:
+      # Bucket yang sama dengan BE (STORAGE_BUCKET), lewat network Docker.
+      MEDIA_UPSTREAM: http://storage:8333/${STORAGE_BUCKET:-pos-bucket}
+    volumes:
+      - ./nginx/templates:/etc/nginx/templates:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8081/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    logging: *default-logging
+    networks:
+      - pos_network
+
+volumes:
+  landing_pb_data:
+
+networks:
+  # Dibuat sekali di server: docker network create pos_network
+  pos_network:
+    external: true
