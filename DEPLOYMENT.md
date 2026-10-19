@@ -12,7 +12,7 @@ repo adalah setup lama dan tidak dipakai produksi.
 - Secrets: `SSH_HOST`, `SSH_PORT`, `SSH_USER`, `SSH_KEY`, `REGISTRY_USER`, `REGISTRY_PAT` (Docker Hub), **`ENV_FILE_LANDING`**
   (isi `.env` server: `REGISTRY_USER`, `STORAGE_BUCKET`; template `deploy/.env.example`, nilai di
   `secret/LANDINGPAGE/.env`. Ditulis workflow ke `DEPLOY_PATH/landing/.env`; `LANDING_TAG` diatur CI.)
-- Variables: `DEPLOY_PATH`, `DOMAIN`, `VITE_POCKETBASE_URL` (kosong = origin sendiri),
+- Variables: `HEALTH_TIMEOUT` (opsional, detik menunggu container healthy; default 180), `DEPLOY_PATH`, `DOMAIN`, `VITE_POCKETBASE_URL` (kosong = origin sendiri),
   `VITE_MEDIA_BASE_URL` (`https://storage.spontanjualan.id/pos-bucket`)
 
 ## Rollback manual

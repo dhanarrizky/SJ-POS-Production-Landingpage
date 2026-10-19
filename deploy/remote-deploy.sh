@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Dijalankan di VPS oleh CI (appleboy/ssh-action). Argumen: $1 = tag image baru.
-# Env dari CI: STACK_PATH, REGISTRY_USER, REGISTRY_PAT.
+# Env dari CI: STACK_PATH, REGISTRY_USER, REGISTRY_PAT. Opsional: HEALTH_TIMEOUT (detik, default 180).
 set -euo pipefail
 cd "$STACK_PATH"
 NEW_TAG="$1"
+HEALTH_TIMEOUT=${HEALTH_TIMEOUT:-180}
 SERVICE=landing
 CONTAINER=pos_landing
 TAGVAR=LANDING_TAG
@@ -34,7 +35,7 @@ rollback() {
 }
 
 wait_healthy() {
-  for _ in $(seq 1 18); do
+  for _ in $(seq 1 $((HEALTH_TIMEOUT / 5))); do
     [ "$(docker inspect -f '{{.State.Health.Status}}' "$CONTAINER" 2>/dev/null || echo none)" = healthy ] && return 0
     sleep 5
   done
@@ -42,9 +43,14 @@ wait_healthy() {
 }
 
 set_tag "$NEW_TAG"
-docker compose pull "$SERVICE"
+# Pull dicoba ulang: jaringan/registry kadang lambat atau putus sesaat.
+for attempt in 1 2 3; do
+  docker compose pull "$SERVICE" && break
+  [ "$attempt" = 3 ] && rollback
+  echo "pull gagal (percobaan $attempt), coba lagi..."; sleep 10
+done
 docker compose up -d --remove-orphans || rollback
-wait_healthy || { docker compose logs --tail=50 "$SERVICE" || true; rollback; }
+wait_healthy || { echo "Tidak healthy dalam ${HEALTH_TIMEOUT}s"; docker compose logs --tail=50 "$SERVICE" || true; rollback; }
 docker compose exec -T landing-web nginx -t || rollback
 docker image prune -f
 echo "Deploy OK: ${TAGVAR}=$NEW_TAG"
