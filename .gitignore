@@ -75,3 +75,5 @@ removeAos.cjs
 updateAos.cjs
 download_pocketbase.sh
 setup-pocketbase.ps1
+# Workflow CI/CD disalin manual ke GitHub (token tidak punya scope workflow)
+.github/workflows/
