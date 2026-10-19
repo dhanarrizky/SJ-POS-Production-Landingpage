@@ -2,6 +2,8 @@
 # (TLS dan domain ditangani nginx repo INFRA). Diproses envsubst oleh image nginx saat start;
 # variabel yang dipakai: MEDIA_UPSTREAM.
 
+resolver 127.0.0.11 valid=10s ipv6=off;
+
 upstream pocketbase {
     server landing:8080;
     keepalive 32;
@@ -36,11 +38,13 @@ server {
     proxy_set_header X-Forwarded-Host $http_x_forwarded_host;
 
     # Gambar statis dari SeaweedFS (bucket bersama) lewat /media/ (hindari mixed content).
-    location /media/ {
+    # Di-resolve saat request (resolver Docker): nginx tetap start walau stack infra/storage belum jalan.
+    location ~ ^/media/(?<media_path>.+)$ {
         limit_except GET { deny all; }
 
-        proxy_pass ${MEDIA_UPSTREAM}/;
-        proxy_set_header Host $proxy_host;
+        set $media_upstream ${MEDIA_UPSTREAM};
+        proxy_pass $media_upstream/$media_path$is_args$args;
+        proxy_set_header Host storage:8333;
         proxy_set_header Authorization "";
         proxy_hide_header Set-Cookie;
         proxy_hide_header x-amz-request-id;

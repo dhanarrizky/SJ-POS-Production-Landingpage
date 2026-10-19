@@ -9,7 +9,7 @@ x-logging: &default-logging
 
 services:
   landing:
-    image: ghcr.io/${GHCR_OWNER:?GHCR_OWNER must be set}/landing-page:${LANDING_TAG:-latest}
+    image: ${REGISTRY_USER:?REGISTRY_USER must be set}/landing-app:${LANDING_TAG:-latest}
     container_name: pos_landing
     restart: unless-stopped
     environment:
