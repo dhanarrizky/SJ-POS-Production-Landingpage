@@ -9,7 +9,9 @@ x-logging: &default-logging
 
 services:
   landing:
-    image: ${REGISTRY_USER:?REGISTRY_USER must be set}/landing-app:${LANDING_TAG:-latest}
+    image: landing-app:${LANDING_TAG:-none}
+    # Image dimuat CI lewat `docker load` (tanpa registry); jangan coba pull.
+    pull_policy: never
     container_name: pos_landing
     restart: unless-stopped
     environment:
