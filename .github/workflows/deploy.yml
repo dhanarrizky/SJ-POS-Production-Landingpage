@@ -63,7 +63,7 @@ jobs:
           DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
         run: |
           ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "mkdir -p '$DEPLOY_PATH/landing'"
-          rsync -az -e "ssh -p $SSH_PORT" deploy/docker-compose.yml "$SSH_USER@$SSH_HOST:$DEPLOY_PATH/landing/"
+          rsync -az --delete -e "ssh -p $SSH_PORT" deploy/docker-compose.yml deploy/nginx "$SSH_USER@$SSH_HOST:$DEPLOY_PATH/landing/"
 
       - name: Deploy
         env:
@@ -89,18 +89,19 @@ jobs:
           rollback() {
             echo "Deploy landing gagal, rollback ke $OLD_TAG"
             set_tag "$OLD_TAG"
-            docker compose up -d landing || true
+            docker compose up -d || true
             exit 1
           }
           set_tag "$NEW_TAG"
           docker compose pull landing
-          docker compose up -d landing || rollback
+          docker compose up -d --remove-orphans || rollback
           ok=0
           for _ in $(seq 1 18); do
             [ "$(docker inspect -f '{{.State.Health.Status}}' pos_landing 2>/dev/null)" = healthy ] && { ok=1; break; }
             sleep 5
           done
           [ "$ok" = 1 ] || rollback
+          docker compose exec -T landing-web nginx -t || rollback
           docker image prune -f
           REMOTE
 
