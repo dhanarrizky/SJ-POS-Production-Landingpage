@@ -1,0 +1,105 @@
+# =============================================================================
+# Nginx reverse proxy — HTTPS untuk PocketBase + frontend React
+# =============================================================================
+# File ini diproses envsubst saat container start (hanya variabel yang
+# didefinisikan di environment: DOMAIN, EXTRA_DOMAINS, MEDIA_UPSTREAM).
+# Variabel Nginx seperti $host tidak ikut tersubstitusi.
+# =============================================================================
+
+upstream pocketbase {
+    server landing:8080;
+    keepalive 32;
+}
+
+# -----------------------------------------------------------------------------
+# HTTP :80 — hanya untuk ACME challenge Let's Encrypt, sisanya redirect ke HTTPS
+# -----------------------------------------------------------------------------
+server {
+    listen 80;
+    listen [::]:80;
+    server_name ${DOMAIN} ${EXTRA_DOMAINS};
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+# -----------------------------------------------------------------------------
+# HTTPS :443
+# -----------------------------------------------------------------------------
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name ${DOMAIN} ${EXTRA_DOMAINS};
+
+    ssl_certificate     /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
+
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers off;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 1d;
+    ssl_session_tickets off;
+
+    # Security headers (jangan pakai add_header di dalam location, karena itu
+    # membuat header di level server ini tidak diwariskan)
+    add_header Strict-Transport-Security "max-age=31536000" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+
+    # Batas upload file dari dashboard CMS (gambar blog, produk, dll.)
+    client_max_body_size 50M;
+
+    gzip on;
+    gzip_proxied any;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_types text/plain text/css text/xml application/json application/javascript
+               application/xml application/rss+xml image/svg+xml;
+
+    # Header ke PocketBase. X-Forwarded-For & X-Real-IP sengaja DITIMPA
+    # (bukan di-append) agar IP tidak bisa dipalsukan client — dipakai
+    # c.realIP() di pb_hooks untuk tracking & rate limit saran.
+    proxy_http_version 1.1;
+    proxy_set_header Connection "";
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $remote_addr;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-Host $host;
+
+    # Gambar statis dari SeaweedFS (HTTP) disajikan lewat HTTPS di /media/
+    # supaya tidak diblokir browser sebagai mixed content.
+    location /media/ {
+        limit_except GET { deny all; }
+
+        proxy_pass ${MEDIA_UPSTREAM}/;
+        proxy_set_header Host $proxy_host;
+        proxy_set_header Authorization "";
+        proxy_hide_header Set-Cookie;
+        proxy_hide_header x-amz-request-id;
+        proxy_hide_header x-amz-id-2;
+        proxy_hide_header Server;
+
+        expires 30d;
+    }
+
+    # Realtime (SSE) PocketBase — jangan di-buffer
+    location /api/realtime {
+        proxy_pass http://pocketbase;
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 1h;
+    }
+
+    location / {
+        proxy_pass http://pocketbase;
+        proxy_read_timeout 120s;
+    }
+}

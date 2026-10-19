@@ -1,0 +1,102 @@
+# =============================================================================
+# Landing Page (Spontan Jualan) — Docker Compose
+# =============================================================================
+# Stack:
+#   1. landing  -> PocketBase + React/Vite static frontend (internal, tidak dibuka ke publik)
+#   2. nginx    -> Reverse proxy HTTPS (port 80 & 443)
+#   3. certbot  -> Terbitkan & perpanjang sertifikat Let's Encrypt otomatis
+#
+# Usage:
+#   docker compose up -d          -> Start in background
+#   docker compose up -d --build  -> Rebuild image and start
+#   docker compose logs -f        -> Follow logs
+#   docker compose down           -> Stop all services
+#   docker compose down -v        -> Stop and remove volumes (WARNING: deletes data & certificates!)
+#
+# First-time setup:
+#   1. Arahkan DNS A record DOMAIN (dan EXTRA_DOMAINS) ke IP server
+#   2. Buka port 80 & 443 di firewall
+#   3. cp .env.example .env  lalu isi DOMAIN, CERTBOT_EMAIL, MEDIA_UPSTREAM
+#   4. docker compose up -d --build
+#   5. Cek sertifikat: docker compose logs -f certbot
+#
+# PocketBase Admin UI:
+#   https://<DOMAIN>/_/  (create superuser on first run)
+# =============================================================================
+
+services:
+  landing:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        PB_VERSION: ${PB_VERSION:-0.22.20}
+        # Kosong = frontend memakai window.location.origin (https://<DOMAIN>)
+        VITE_POCKETBASE_URL: ${VITE_POCKETBASE_URL:-}
+        VITE_MEDIA_BASE_URL: ${VITE_MEDIA_BASE_URL:-/media}
+    container_name: spontan_landing
+    restart: unless-stopped
+    # Tidak ada "ports": hanya bisa diakses lewat nginx di jaringan internal
+    expose:
+      - "8080"
+    environment:
+      # Port PocketBase di dalam container. Sengaja tidak memakai PORT dari .env
+      # (itu port Vite dev server) dan harus sama dengan upstream di nginx.
+      PORT: 8080
+    volumes:
+      # Persist PocketBase data (SQLite DB, uploads, logs)
+      - pb_data:/pb/pb_data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  nginx:
+    build:
+      context: ./nginx
+    container_name: spontan_nginx
+    restart: unless-stopped
+    depends_on:
+      landing:
+        condition: service_healthy
+    ports:
+      # - "80:80"
+      - "8081:8081"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?DOMAIN wajib diisi di .env}
+      EXTRA_DOMAINS: ${EXTRA_DOMAINS:-}
+      MEDIA_UPSTREAM: ${MEDIA_UPSTREAM:?MEDIA_UPSTREAM wajib diisi di .env}
+    volumes:
+      - certbot_conf:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
+
+  certbot:
+    image: certbot/certbot:latest
+    container_name: spontan_certbot
+    restart: unless-stopped
+    depends_on:
+      - nginx
+    entrypoint: ["/bin/sh", "/certbot-entrypoint.sh"]
+    environment:
+      DOMAIN: ${DOMAIN}
+      EXTRA_DOMAINS: ${EXTRA_DOMAINS:-}
+      CERTBOT_EMAIL: ${CERTBOT_EMAIL:-}
+      CERTBOT_STAGING: ${CERTBOT_STAGING:-0}
+    volumes:
+      - ./nginx/certbot-entrypoint.sh:/certbot-entrypoint.sh:ro
+      - certbot_conf:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  pb_data:
+    driver: local
+  certbot_conf:
+    driver: local
+  certbot_www:
+    driver: local
