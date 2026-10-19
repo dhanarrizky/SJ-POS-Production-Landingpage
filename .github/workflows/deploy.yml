@@ -1,0 +1,83 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production-landing
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set tag
+        run: echo "TAG=sha-${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+
+      - uses: docker/setup-buildx-action@v3
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: landing-app:${{ env.TAG }}
+          build-args: |
+            VITE_POCKETBASE_URL=${{ vars.VITE_POCKETBASE_URL }}
+            VITE_MEDIA_BASE_URL=${{ vars.VITE_MEDIA_BASE_URL }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Tanpa registry: image dikemas jadi tar.gz lalu dikirim langsung ke server lewat SSH.
+      - name: Simpan image
+        run: docker save landing-app:${{ env.TAG }} | gzip > deploy/image.tar.gz
+
+      - name: Kirim image dan file deploy
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          source: deploy/image.tar.gz,deploy/docker-compose.yml,deploy/remote-deploy.sh,deploy/nginx
+          target: ${{ vars.DEPLOY_PATH }}/landing
+          strip_components: 1
+          timeout: 60s
+          command_timeout: 30m
+
+      - name: Deploy to VPS via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          STACK_PATH: ${{ vars.DEPLOY_PATH }}/landing
+          ENV_FILE: ${{ secrets.ENV_FILE_LANDING }}
+          TAG: ${{ env.TAG }}
+          HEALTH_TIMEOUT: ${{ vars.HEALTH_TIMEOUT || '180' }}
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          envs: STACK_PATH,ENV_FILE,TAG,HEALTH_TIMEOUT
+          timeout: 60s
+          command_timeout: 30m
+          script_stop: true
+          script: |
+            umask 077
+            cd "$STACK_PATH"
+            # .env dari secret GitHub; skrip deploy menggantikan .env lama setelah membaca tag lama.
+            printf '%s\n' "$ENV_FILE" > .env.new
+            bash remote-deploy.sh "$TAG"
+
+      - name: Smoke test
+        env:
+          DOMAIN: ${{ vars.DOMAIN }}
+        run: |
+          curl -fsS --retry 10 --retry-delay 5 --retry-all-errors "https://$DOMAIN/" > /dev/null
+          curl -fsS --retry 10 --retry-delay 5 --retry-all-errors "https://www.$DOMAIN/" > /dev/null
