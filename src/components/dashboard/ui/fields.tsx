@@ -3,6 +3,7 @@ import { ArrowDown, ArrowUp, Image as ImageIcon, Plus, Trash2 } from "lucide-rea
 import { pbFileUrl } from "../../../lib/media"
 import { parseMarkdown } from "../../../lib/markdown"
 import { toSlug } from "../../../lib/slug"
+import RichTextEditor from "../RichTextEditor"
 import type { Draft, FieldDef, ListColumn } from "./types"
 
 export const inputCls =
@@ -468,6 +469,9 @@ export function FieldInput({
           placeholder={def.placeholder}
         />
       )
+    case "richtext":
+      // Editor dimuat ulang saat berganti item lewat `key` di CollectionManager
+      return <RichTextEditor value={value ?? ""} onChange={onChange} />
     case "stringList":
       return (
         <StringListEditor

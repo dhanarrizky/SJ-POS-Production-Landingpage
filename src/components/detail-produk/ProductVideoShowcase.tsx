@@ -22,9 +22,9 @@ export default function ProductVideoShowcase({
     : null
 
   return (
-    <section className="hidden bg-brand-lightest py-[50px] px-4 sm:px-[71px]">
+    <section className="bg-brand-lightest py-[50px] px-4 sm:px-[71px]">
       <div className="max-w-7xl mx-auto flex flex-col items-center gap-[50px]">
-        <div className="w-full flex flex-col lg:flex-row lg:justify-between lg:items-center gap-8 lg:gap-[216px]">
+        <div className="w-full flex flex-col lg:flex-row lg:justify-between lg:items-start gap-8 lg:gap-[216px]">
           <h2 className="font-poppins text-[28px] sm:text-[40px] leading-[1.3] sm:leading-[55px] font-semibold text-brand max-w-[546px]">
             {title}
           </h2>

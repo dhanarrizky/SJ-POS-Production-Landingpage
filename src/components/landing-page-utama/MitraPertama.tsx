@@ -1,6 +1,33 @@
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { pb } from "../../lib/pocketbase";
+import type { SiteSettings } from "../../types/cms";
 
-export default function MitraPertama() {
+interface MitraPertamaProps {
+  siteSettings?: SiteSettings | null;
+}
+
+export default function MitraPertama({ siteSettings: propSettings }: MitraPertamaProps = {}) {
+  const [internalSettings, setInternalSettings] = useState<SiteSettings | null>(null);
+
+  useEffect(() => {
+    if (propSettings) return;
+    pb.collection("site_settings")
+      .getFirstListItem("", { sort: "-updated", requestKey: null })
+      .then((record) => {
+        setInternalSettings(record as unknown as SiteSettings);
+      })
+      .catch(() => {});
+  }, [propSettings]);
+
+  const siteSettings = propSettings || internalSettings;
+
+  const badge = siteSettings?.mitra_pertama_badge || "100 Bisnis Pertama";
+  const title = siteSettings?.mitra_pertama_title || "Bukan Sekadar Menggunakan.\nIkut Membentuk.";
+  const desc =
+    siteSettings?.mitra_pertama_desc ||
+    "Spontan Jualan membangun solusi untuk bisnis Indonesia, dimulai dari kebutuhan sehari-hari yang praktis. Pengalaman dan kebutuhan Anda akan menjadi bagian dari perjalanan kami.";
+
   return (
     <section className="w-full bg-[#F5FFF6] py-[60px] md:py-[100px] font-sans">
       <div className="max-w-[1440px] mx-auto px-4 lg:px-[71px]">
@@ -12,16 +39,18 @@ export default function MitraPertama() {
           
           {/* Kiri: Teks */}
           <div className="flex-1 text-white z-10 text-center lg:text-left">
-            <div className="inline-block bg-white/20 backdrop-blur-md px-4 py-1.5 rounded-full mb-4">
-              <h4 className="text-[12px] md:text-[14px] font-bold text-white uppercase tracking-wider">
-                100 Bisnis Pertama
-              </h4>
-            </div>
-            <h2 className="text-[32px] md:text-[40px] font-bold leading-tight mb-4">
-              Bukan Sekadar Menggunakan.<br className="hidden md:block" /> Ikut Membentuk.
+            {badge && (
+              <div className="inline-block bg-white/20 backdrop-blur-md px-4 py-1.5 rounded-full mb-4">
+                <h4 className="text-[12px] md:text-[14px] font-bold text-white uppercase tracking-wider">
+                  {badge}
+                </h4>
+              </div>
+            )}
+            <h2 className="text-[32px] md:text-[40px] font-bold leading-tight mb-4 whitespace-pre-line">
+              {title}
             </h2>
-            <p className="text-[16px] md:text-[18px] font-normal mb-0 text-emerald-50 leading-relaxed max-w-[550px] mx-auto lg:mx-0">
-              Spontan Jualan membangun solusi untuk bisnis Indonesia, dimulai dari kebutuhan sehari-hari yang praktis. Pengalaman dan kebutuhan Anda akan menjadi bagian dari perjalanan kami.
+            <p className="text-[16px] md:text-[18px] font-normal mb-0 text-emerald-50 leading-relaxed max-w-[550px] mx-auto lg:mx-0 whitespace-pre-line">
+              {desc}
             </p>
           </div>
           
@@ -41,3 +70,4 @@ export default function MitraPertama() {
     </section>
   );
 }
+

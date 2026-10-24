@@ -8,6 +8,7 @@ export type FieldType =
   | "color"
   | "image"
   | "markdown"
+  | "richtext"
   | "stringList"
   | "objectList"
   | "footerColumns"

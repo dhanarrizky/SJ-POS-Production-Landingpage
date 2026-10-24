@@ -1,27 +1,35 @@
 import { LogOut, Database } from "lucide-react"
 import { pb } from "../../lib/pocketbase"
+import { resolveSiteLogo } from "../../lib/media"
+import logoUrl from "../../assets/logo.png"
+import type { SiteSettings } from "../../types/cms"
 
 interface DashboardHeaderProps {
   loadingData: boolean
   onRefresh: () => void
   onLogout: () => void
+  siteSettings?: SiteSettings | null
 }
 
 export default function DashboardHeader({
   loadingData,
   onRefresh,
   onLogout,
+  siteSettings,
 }: DashboardHeaderProps) {
+  const brandName = siteSettings?.site_name || "SpontanJualan"
+  const logoImage = resolveSiteLogo(siteSettings, logoUrl)
+
   return (
     <header className="border-b border-white/8 py-4 px-6 sticky top-0 bg-[#060d19]/90 backdrop-blur-md z-40">
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white font-black text-lg bg-gradient-to-br from-brand to-brand-dark">
-            S
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center overflow-hidden bg-white/5 border border-white/10 p-1">
+            <img src={logoImage} alt="Logo" className="w-full h-full object-contain" />
           </div>
           <div>
             <h2 className="text-sm font-bold text-white leading-tight">
-              SpontanJualan
+              {brandName}
             </h2>
             <p className="text-[10px] text-emerald-400 font-mono tracking-wider">
               ANALYTICS SYSTEM v1.0

@@ -1,5 +1,9 @@
+import { useState, useEffect } from "react"
 import { Lock, ArrowLeft } from "lucide-react"
 import logoUrl from "../../assets/logo.png"
+import { pb } from "../../lib/pocketbase"
+import { resolveSiteLogo } from "../../lib/media"
+import type { SiteSettings } from "../../types/cms"
 
 interface DashboardLoginProps {
   email: string
@@ -20,6 +24,18 @@ export default function DashboardLogin({
   loggingIn,
   onLogin,
 }: DashboardLoginProps) {
+  const [siteSettings, setSiteSettings] = useState<SiteSettings | null>(null)
+
+  useEffect(() => {
+    pb.collection("site_settings")
+      .getFirstListItem("", { sort: "-updated", requestKey: null })
+      .then((res) => setSiteSettings(res as unknown as SiteSettings))
+      .catch((err) => console.error("Failed to load site settings:", err))
+  }, [])
+
+  const logoImage = resolveSiteLogo(siteSettings, logoUrl)
+  const brandName = siteSettings?.site_name || "SpontanJualan"
+
   return (
     <div className="min-h-screen bg-[#0a1628] flex items-center justify-center relative overflow-hidden font-sans">
       {/* Decorative Grid Mesh */}
@@ -37,12 +53,12 @@ export default function DashboardLogin({
         {/* Logo brand */}
         <div className="flex flex-col items-center mb-8">
           <img
-            src={logoUrl}
-            alt="Spontan Jualan Logo"
+            src={logoImage}
+            alt={`${brandName} Logo`}
             className="w-14 h-14 object-contain mb-4 animate-float-s"
           />
           <h1 className="text-white text-2xl font-black tracking-tight">
-            Admin SpontanJualan
+            Admin {brandName}
           </h1>
           <p className="text-slate-400 text-xs mt-1">
             Gunakan kredensial pengelola untuk masuk ke dashboard

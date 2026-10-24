@@ -99,7 +99,7 @@ export default function SiteSettingsTab() {
   useEffect(() => {
     let active = true
     pb.collection("site_settings")
-      .getFirstListItem("")
+      .getFirstListItem("", { sort: "-updated", requestKey: null })
       .then((r) => {
         if (active) setRecord(r as unknown as Draft)
       })

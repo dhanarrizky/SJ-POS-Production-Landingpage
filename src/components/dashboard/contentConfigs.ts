@@ -136,6 +136,29 @@ export const blogConfig: ManagerConfig = {
   ] as FieldDef[],
 }
 
+// ------------------------------------------------------------------ Legal
+export const legalConfig: ManagerConfig = {
+  collection: "legal_pages",
+  title: "Halaman Legal",
+  noun: "bagian",
+  sort: "sort_order,created",
+  defaults: { active: true, doc_group: "Kebijakan Privasi" },
+  description:
+    "Satu baris = satu item di sidebar. Grup \"Kebijakan Privasi\" tampil di /kebijakan-privasi, grup \"Syarat & Ketentuan\" di /syarat-ketentuan; item dengan urutan terkecil di tiap grup adalah halaman utamanya. Teks bertanda [ISI: …] wajib dilengkapi, dan seluruh isi sebaiknya ditinjau pihak yang memahami hukum sebelum dipublikasikan.",
+  listLabel: (r) => r.name,
+  listSub: (r) => `${r.doc_group || "-"} · ${r.slug}`,
+  fields: [
+    { key: "name", label: "Nama di sidebar", type: "text", required: true, half: true },
+    { key: "slug", label: "Slug (URL: /kebijakan-privasi/… atau /syarat-ketentuan/…)", type: "slug", required: true, half: true, hint: "Item pertama tiap grup dibuka lewat alamat dasarnya (tanpa slug), jadi link footer tidak bergantung pada slug." },
+    { key: "doc_group", label: "Grup di sidebar", type: "text", required: true, half: true, hint: "Tulis persis: Kebijakan Privasi atau Syarat & Ketentuan. Nama lain tidak akan tampil di halaman mana pun." },
+    { key: "sort_order", label: "Urutan", type: "number", half: true, hint: "Kecil tampil lebih dulu di sidebar masing-masing grup." },
+    { key: "title", label: "Judul di atas isi", type: "text", hint: "Kosong = memakai nama di sidebar." },
+    { key: "effective_date", label: "Tanggal berlaku", type: "text", placeholder: "16 Oktober 2026", hint: "Ditampilkan di hero sebagai “Berlaku sejak”." },
+    { key: "content", label: "Isi (editor)", type: "richtext" },
+    { key: "active", label: "Aktif (tampil di halaman publik)", type: "bool" },
+  ] as FieldDef[],
+}
+
 // ----------------------------------------------------------------- Produk
 export const productsConfig: ManagerConfig = {
   collection: "products",

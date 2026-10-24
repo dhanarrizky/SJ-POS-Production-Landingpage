@@ -12,6 +12,11 @@ import {
 import { pageTitle, useSEO } from "../hooks/useSEO"
 import DashboardLogin from "../components/dashboard/DashboardLogin"
 import DashboardHeader from "../components/dashboard/DashboardHeader"
+import LayoutCMS from "../components/dashboard/layout"
+import LandingPageUtamaCMS from "../components/dashboard/landing-page-utama"
+import TentangKamiCMS from "../components/dashboard/tentang-kami"
+import BeritaCMS from "../components/dashboard/berita"
+import DetailProdukCMS from "../components/dashboard/detail-produk"
 import DashboardTrafficTab, {
   type RangeDays,
 } from "../components/dashboard/DashboardTrafficTab"
@@ -23,21 +28,26 @@ import DashboardContentTab from "../components/dashboard/DashboardContentTab"
 import CollectionManager from "../components/dashboard/CollectionManager"
 import SiteSettingsTab from "../components/dashboard/SiteSettingsTab"
 import {
-  blogConfig,
   faqConfig,
   highlightsConfig,
+  legalConfig,
   pricingConfig,
   productsConfig,
   testimonialsConfig,
   videosConfig,
 } from "../components/dashboard/contentConfigs"
-import type { Suggestion, PageView } from "../types/cms"
+import type { Suggestion, PageView, SiteSettings } from "../types/cms"
 
 type TabKey =
   | "traffic"
   | "feedback"
   | "geo"
   | "systems"
+  | "layout"
+  | "landing_page_utama"
+  | "tentang_kami"
+  | "berita"
+  | "detail_produk"
   | "content"
   | "site"
   | "products"
@@ -47,6 +57,7 @@ type TabKey =
   | "blog"
   | "videos"
   | "highlights"
+  | "legal"
 
 interface VisitorAnalytics {
   harian: number
@@ -58,18 +69,23 @@ interface VisitorAnalytics {
 
 const TABS = [
   { key: "traffic" as TabKey, label: "📊 Grafik & Trafik", icon: Activity },
+  { key: "layout" as TabKey, label: "🎨 General (Navbar/Footer)", icon: Monitor },
+  { key: "landing_page_utama" as TabKey, label: "🏠 Landing Page Utama", icon: Monitor },
+  { key: "tentang_kami" as TabKey, label: "👥 Tentang Kami", icon: Users },
+  { key: "berita" as TabKey, label: "📰 Berita", icon: Monitor },
+  { key: "detail_produk" as TabKey, label: "📄 Detail Produk", icon: Monitor },
+  { key: "highlights" as TabKey, label: "⭐ Sorotan Produk", icon: Monitor },
+  { key: "content" as TabKey, label: "📝 Konten Fitur", icon: Monitor },
+  { key: "legal" as TabKey, label: "⚖️ Legal", icon: Monitor },
   { key: "feedback" as TabKey, label: "✉️ Saran", icon: MessageSquare },
   { key: "geo" as TabKey, label: "🌍 Geografis & Lokasi", icon: Globe },
   { key: "systems" as TabKey, label: "💻 Browser & OS", icon: Monitor },
-  { key: "content" as TabKey, label: "📝 Konten Fitur", icon: Monitor },
   { key: "site" as TabKey, label: "⚙️ Pengaturan Situs", icon: Monitor },
   { key: "products" as TabKey, label: "📦 Produk", icon: Monitor },
   { key: "pricing" as TabKey, label: "💰 Paket Harga", icon: Monitor },
   { key: "testimonials" as TabKey, label: "💬 Testimoni", icon: Monitor },
   { key: "faqs" as TabKey, label: "❓ FAQ", icon: Monitor },
-  { key: "blog" as TabKey, label: "📰 Blog", icon: Monitor },
   { key: "videos" as TabKey, label: "🎬 Video", icon: Monitor },
-  { key: "highlights" as TabKey, label: "⭐ Sorotan Produk", icon: Monitor },
 ]
 
 export default function Dashboard() {
@@ -96,6 +112,7 @@ export default function Dashboard() {
   const [loadingData, setLoadingData] = useState(false)
   const [activeTab, setActiveTab] = useState<TabKey>("traffic")
   const [rangeDays, setRangeDays] = useState<RangeDays>(30)
+  const [siteSettings, setSiteSettings] = useState<SiteSettings | null>(null)
 
   // Restore admin session securely
   useEffect(() => {
@@ -130,7 +147,7 @@ export default function Dashboard() {
   const loadDashboardData = async () => {
     setLoadingData(true)
     try {
-      const [analyticsList, suggestionsList, pageViewsList] = await Promise.all(
+      const [analyticsList, suggestionsList, pageViewsList, siteSettingsRecord] = await Promise.all(
         [
           pb.collection("visitor_analytics").getFullList(),
           pb.collection("suggestions").getFullList({ sort: "-created" }),
@@ -138,12 +155,14 @@ export default function Dashboard() {
             sort: "-created",
             filter: `created >= "${pbDateFilter(rangeDays)}"`,
           }),
+          pb.collection("site_settings").getFirstListItem("", { sort: "-updated", requestKey: null }).catch(() => null)
         ],
       )
       if (analyticsList.length > 0)
         setAnalytics(analyticsList[0] as unknown as VisitorAnalytics)
       setSuggestions(suggestionsList as unknown as Suggestion[])
       setPageViews(pageViewsList as unknown as PageView[])
+      if (siteSettingsRecord) setSiteSettings(siteSettingsRecord as unknown as SiteSettings)
     } catch (err) {
       console.error("Gagal memuat data dashboard:", err)
     } finally {
@@ -298,6 +317,7 @@ export default function Dashboard() {
         loadingData={loadingData}
         onRefresh={loadDashboardData}
         onLogout={handleLogout}
+        siteSettings={siteSettings}
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-6 relative z-10">
@@ -330,11 +350,10 @@ export default function Dashboard() {
             <button
               key={t.key}
               onClick={() => setActiveTab(t.key)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                activeTab === t.key
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${activeTab === t.key
                   ? "bg-brand text-white shadow-emerald-lg"
                   : "text-slate-400 hover:text-white hover:bg-white/5"
-              }`}
+                }`}
             >
               {t.key === "feedback"
                 ? `✉️ Saran (${suggestions.length})`
@@ -364,19 +383,24 @@ export default function Dashboard() {
         {activeTab === "systems" && (
           <DashboardSystemsTab browsers={sysBrowsers} os={sysOS} />
         )}
+        {activeTab === "layout" && <LayoutCMS />}
         {activeTab === "content" && <DashboardContentTab />}
         {activeTab === "site" && <SiteSettingsTab />}
+        {activeTab === "landing_page_utama" && <LandingPageUtamaCMS />}
+        {activeTab === "tentang_kami" && <TentangKamiCMS />}
+        {activeTab === "berita" && <BeritaCMS />}
+        {activeTab === "detail_produk" && <DetailProdukCMS />}
         {activeTab === "products" && <CollectionManager {...productsConfig} />}
         {activeTab === "pricing" && <CollectionManager {...pricingConfig} />}
         {activeTab === "testimonials" && (
           <CollectionManager {...testimonialsConfig} />
         )}
         {activeTab === "faqs" && <CollectionManager {...faqConfig} />}
-        {activeTab === "blog" && <CollectionManager {...blogConfig} />}
         {activeTab === "videos" && <CollectionManager {...videosConfig} />}
         {activeTab === "highlights" && (
           <CollectionManager {...highlightsConfig} />
         )}
+        {activeTab === "legal" && <CollectionManager {...legalConfig} />}
       </main>
 
       {/* Footer bar */}

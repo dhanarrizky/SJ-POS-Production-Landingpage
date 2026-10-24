@@ -18,9 +18,9 @@ interface SEOProps {
 
 export const SITE_NAME = "Spontan Jualan"
 
-/** Format judul halaman: "Spontan Jualan — {nama halaman}" */
+/** Format judul halaman: "Spontan Jualan - {nama halaman}" */
 export function pageTitle(name?: string) {
-  return name ? `${SITE_NAME} — ${name}` : SITE_NAME
+  return name ? `${SITE_NAME} - ${name}` : SITE_NAME
 }
 
 export function useSEO({

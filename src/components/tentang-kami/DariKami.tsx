@@ -1,80 +1,117 @@
-import React, { useState, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
+import { pb } from "../../lib/pocketbase";
+import { mediaUrl } from "../../lib/media";
+import type { SiteSettings, DariKamiItem } from "../../types/cms";
 
-// Large and small images
+// Fallback assets
 import dariDhanar from "../../assets/team/dari-dhanar.webp";
 import dariRian from "../../assets/team/dari-rian.webp";
-import dariBagus from "../../assets/team/dari-bagus.webp";
 import dariRicardo from "../../assets/team/dari-ricardo.webp";
+import dariBagus from "../../assets/team/dari-bagus.webp";
 
-const teamData = [
+const DEFAULT_ITEMS: DariKamiItem[] = [
   {
     id: 1,
     name: "Dhanar Rizky",
     role: "Lead",
-    image: dariDhanar,
+    image: "",
+    image_path: "",
     tag: "Opsi utama",
-    title: (
-      <>
-        Kami Membangun Spontan<br />
-        Jualan untuk Membantu Bisnis<br />
-        Anda Tumbuh
-      </>
-    ),
-    description: "Kami percaya teknologi seharusnya membantu, bukan membuat pengelolaan usaha menjadi lebih rumit. Spontan Jualan hadir untuk memberikan solusi digital yang sederhana, praktis, dan sesuai dengan kebutuhan UMKM Indonesia."
+    title: "Kami Membangun Spontan\nJualan untuk Membantu Bisnis\nAnda Tumbuh",
+    description:
+      "Kami percaya teknologi seharusnya membantu, bukan membuat pengelolaan usaha menjadi lebih rumit. Spontan Jualan hadir untuk memberikan solusi digital yang sederhana, praktis, dan sesuai dengan kebutuhan UMKM Indonesia.",
   },
   {
     id: 2,
     name: "Rian Alfatian",
     role: "QA Engineer",
-    image: dariRian,
+    image: "",
+    image_path: "",
     tag: "Fokus Kualitas",
-    title: (
-      <>
-        Kualitas adalah Prioritas<br />
-        Kami untuk Pengalaman<br />
-        Terbaik
-      </>
-    ),
-    description: "Sebagai QA Engineer, tugas saya memastikan setiap fitur berjalan dengan lancar tanpa hambatan. Kami melakukan pengujian ketat agar Anda bisa menjalankan bisnis tanpa khawatir akan kendala teknis pada aplikasi."
+    title: "Kualitas adalah Prioritas\nKami untuk Pengalaman\nTerbaik",
+    description:
+      "Sebagai QA Engineer, tugas saya memastikan setiap fitur berjalan dengan lancar tanpa hambatan. Kami melakukan pengujian ketat agar Anda bisa menjalankan bisnis tanpa khawatir akan kendala teknis pada aplikasi.",
   },
   {
     id: 3,
     name: "Ricardo Augusto",
     role: "Full stack Developer",
-    image: dariRicardo,
+    image: "",
+    image_path: "",
     tag: "Inovasi Berkelanjutan",
-    title: (
-      <>
-        Sistem yang Tangguh<br />
-        untuk Pertumbuhan<br />
-        Jangka Panjang
-      </>
-    ),
-    description: "Kami mengembangkan infrastruktur yang tidak hanya cepat hari ini, tapi juga siap menghadapi skala bisnis Anda di masa depan. Teknologi yang kami bangun dirancang untuk stabil dan mudah diadaptasi."
+    title: "Sistem yang Tangguh\nuntuk Pertumbuhan\nJangka Panjang",
+    description:
+      "Kami mengembangkan infrastruktur yang tidak hanya cepat hari ini, tapi juga siap menghadapi skala bisnis Anda di masa depan. Teknologi yang kami bangun dirancang untuk stabil dan mudah diadaptasi.",
   },
   {
     id: 4,
     name: "Bagus Wikan",
     role: "Full stack Developer",
-    image: dariBagus,
+    image: "",
+    image_path: "",
     tag: "Performa Optimal",
-    title: (
-      <>
-        Kecepatan dan Keamanan<br />
-        untuk Kenyamanan<br />
-        Anda
-      </>
-    ),
-    description: "Sebagai pengembang, fokus saya adalah memastikan sistem berjalan dengan cepat, aman, dan tanpa hambatan. Kami merancang arsitektur Spontan Jualan agar data Anda selalu terlindungi dan aplikasi merespons secara instan."
-  }
+    title: "Kecepatan dan Keamanan\nuntuk Kenyamanan\nAnda",
+    description:
+      "Sebagai pengembang, fokus saya adalah memastikan sistem berjalan dengan cepat, aman, dan tanpa hambatan. Kami merancang arsitektur Spontan Jualan agar data Anda selalu terlindungi dan aplikasi merespons secara instan.",
+  },
 ];
 
-export default function DariKami() {
-  const [activeId, setActiveId] = useState(1);
+interface DariKamiProps {
+  siteSettings?: SiteSettings | null;
+}
+
+export default function DariKami({ siteSettings: propSettings }: DariKamiProps = {}) {
+  const [internalSettings, setInternalSettings] = useState<SiteSettings | null>(null);
+
+  useEffect(() => {
+    if (propSettings) return;
+    pb.collection("site_settings")
+      .getFirstListItem("", { sort: "-updated", requestKey: null })
+      .then((res) => setInternalSettings(res as unknown as SiteSettings))
+      .catch((err) => console.error("Gagal memuat site_settings di DariKami:", err));
+  }, [propSettings]);
+
+  const siteSettings = propSettings || internalSettings;
+
+  // Resolve items list from CMS or default
+  let itemsList: DariKamiItem[] = DEFAULT_ITEMS;
+  if (siteSettings?.dari_kami_items) {
+    if (Array.isArray(siteSettings.dari_kami_items) && siteSettings.dari_kami_items.length > 0) {
+      itemsList = siteSettings.dari_kami_items;
+    } else if (typeof siteSettings.dari_kami_items === "string") {
+      try {
+        const parsed = JSON.parse(siteSettings.dari_kami_items);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          itemsList = parsed;
+        }
+      } catch {
+        itemsList = DEFAULT_ITEMS;
+      }
+    }
+  }
+
+  const [activeId, setActiveId] = useState<number | string>(() => itemsList[0]?.id || 1);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const activeMember = teamData.find(m => m.id === activeId) || teamData[0];
+  // Helper resolusi foto anggota
+  const getMemberImage = (member: DariKamiItem, index: number) => {
+    if (member.image) return member.image;
+    if (member.image_path) return mediaUrl(member.image_path);
+    if (index === 0) return dariDhanar;
+    if (index === 1) return dariRian;
+    if (index === 2) return dariRicardo;
+    if (index === 3) return dariBagus;
+    return dariDhanar;
+  };
+
+  const activeMember =
+    itemsList.find((m, i) => (m.id ?? i) === activeId) || itemsList[0] || DEFAULT_ITEMS[0];
+  const activeIndex = Math.max(
+    0,
+    itemsList.findIndex((m, i) => (m.id ?? i) === (activeMember.id ?? activeId))
+  );
+  const activeImage = getMemberImage(activeMember, activeIndex);
 
   return (
     <section className="w-full bg-[#F5FFF6] py-[50px] font-sans overflow-hidden">
@@ -97,7 +134,7 @@ export default function DariKami() {
           {/* Left: Big Image */}
           <div className="flex-shrink-0">
             <img 
-              src={activeMember.image} 
+              src={activeImage} 
               alt={activeMember.name} 
               className="w-[415px] h-[589px] flex-shrink-0 object-cover rounded-[20px] shadow-[0_4px_50px_rgba(0,0,0,0.25)] transition-all duration-500"
             />
@@ -106,17 +143,20 @@ export default function DariKami() {
           {/* Right: Content */}
           <div className="flex flex-col flex-1 w-full min-w-0 mt-6 lg:mt-0">
             
-            {/* Top: Team Slider */}
+            {/* Top: Team Slider Cards */}
             <div 
               ref={scrollRef}
               className="flex gap-4 overflow-x-auto scrollbar-none pb-6 snap-x snap-mandatory bleed-right"
             >
-              {teamData.map((member) => {
-                const isActive = activeId === member.id;
+              {itemsList.map((member, idx) => {
+                const memberId = member.id ?? idx;
+                const isActive = (activeMember.id ?? activeIndex) === memberId;
+                const memberAvatar = getMemberImage(member, idx);
+
                 return (
                   <div
-                    key={member.id}
-                    onClick={() => setActiveId(member.id)}
+                    key={memberId}
+                    onClick={() => setActiveId(memberId)}
                     className={`flex items-center gap-[10px] flex-shrink-0 w-max h-[60px] px-[40px] rounded-[10px] cursor-pointer snap-start transition-all duration-300 ${
                       isActive 
                         ? 'border-[#0CAD31] border-[1px] bg-[#F5FFF6] shadow-sm' 
@@ -124,7 +164,7 @@ export default function DariKami() {
                     }`}
                   >
                     <img 
-                      src={member.image} 
+                      src={memberAvatar} 
                       alt={member.name} 
                       className="w-[40px] h-[40px] min-w-[40px] flex-shrink-0 rounded-full object-cover"
                     />
@@ -137,13 +177,15 @@ export default function DariKami() {
               })}
             </div>
 
-            {/* Middle: Text */}
+            {/* Middle: Dynamic Story Text */}
             <div className="flex flex-col mt-4 max-w-[650px]">
-              <h4 className="text-[#0CAD31] text-[14px] lg:text-[16px] font-bold mb-2 lg:mb-4">{activeMember.tag}</h4>
-              <h2 className="text-black text-[28px] lg:text-[40px] font-bold leading-tight mb-2 lg:mb-4">
+              <h4 className="text-[#0CAD31] text-[14px] lg:text-[16px] font-bold mb-2 lg:mb-4">
+                {activeMember.tag}
+              </h4>
+              <h2 className="text-black text-[28px] lg:text-[40px] font-bold leading-tight mb-2 lg:mb-4 whitespace-pre-line">
                 {activeMember.title}
               </h2>
-              <p className="text-gray-800 text-[14px] lg:text-[16px] font-normal mb-6 lg:mb-8">
+              <p className="text-gray-800 text-[14px] lg:text-[16px] font-normal mb-6 lg:mb-8 whitespace-pre-line">
                 {activeMember.description}
               </p>
               

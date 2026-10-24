@@ -1,4 +1,5 @@
-import type { ReactNode } from "react"
+import { useRef, type ReactNode } from "react"
+import TipTapImage from "@tiptap/extension-image"
 import {
   EditorContent,
   Extension,
@@ -28,6 +29,7 @@ import {
   Code2,
   Eraser,
   Highlighter,
+  Image as ImageIcon,
   IndentDecrease,
   IndentIncrease,
   Italic,
@@ -140,6 +142,49 @@ export default function RichTextEditor({
   value,
   onChange,
 }: RichTextEditorProps) {
+  const imageInputRef = useRef<HTMLInputElement | null>(null)
+
+  const handleImageFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      const rawDataUrl = event.target?.result as string
+      if (!rawDataUrl) return
+
+      const img = new window.Image()
+      img.onload = () => {
+        const maxDim = 1200
+        let w = img.width
+        let h = img.height
+        if (w > maxDim || h > maxDim) {
+          if (w > h) {
+            h = Math.round((h * maxDim) / w)
+            w = maxDim
+          } else {
+            w = Math.round((w * maxDim) / h)
+            h = maxDim
+          }
+        }
+        const canvas = document.createElement("canvas")
+        canvas.width = w
+        canvas.height = h
+        const ctx = canvas.getContext("2d")
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, w, h)
+          const compressed = canvas.toDataURL("image/jpeg", 0.82)
+          editor?.chain().focus().setImage({ src: compressed, alt: file.name }).run()
+        } else {
+          editor?.chain().focus().setImage({ src: rawDataUrl, alt: file.name }).run()
+        }
+      }
+      img.src = rawDataUrl
+    }
+    reader.readAsDataURL(file)
+    e.target.value = ""
+  }
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -149,6 +194,10 @@ export default function RichTextEditor({
           autolink: true,
           HTMLAttributes: { target: "_blank", rel: "noopener noreferrer" },
         },
+      }),
+      TipTapImage.configure({
+        inline: false,
+        allowBase64: true,
       }),
       TextStyle,
       Color,
@@ -449,6 +498,19 @@ export default function RichTextEditor({
         <ToolbarButton label="Link" active={s.link} onClick={setLink}>
           <Link2 size={14} />
         </ToolbarButton>
+        <ToolbarButton
+          label="Sisipkan Foto / Gambar"
+          onClick={() => imageInputRef.current?.click()}
+        >
+          <ImageIcon size={14} />
+        </ToolbarButton>
+        <input
+          type="file"
+          ref={imageInputRef}
+          accept="image/*"
+          className="hidden"
+          onChange={handleImageFile}
+        />
         <ToolbarButton
           label="Kutipan"
           active={s.quote}

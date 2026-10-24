@@ -41,6 +41,7 @@ html { scroll-behavior: smooth; }
 .rich-content a { color: var(--color-brand); text-decoration: underline; }
 .rich-content strong { font-weight: 600; }
 .rich-content hr { border: 0; border-top: 1px solid currentColor; opacity: 0.2; }
+.rich-content img { max-width: 100%; height: auto; border-radius: 8px; margin: 1.25em 0; display: block; }
 
 body {
   font-family: 'Poppins', sans-serif;

@@ -29,6 +29,7 @@ const CONTENT_TAGS = [
   "tr",
   "th",
   "td",
+  "img",
 ]
 const CONTENT_ATTRS = [
   "href",
@@ -38,6 +39,12 @@ const CONTENT_ATTRS = [
   "colspan",
   "rowspan",
   "data-color",
+  "src",
+  "alt",
+  "title",
+  "width",
+  "height",
+  "class",
 ]
 
 // `style` hanya boleh berisi properti tampilan berikut dengan nilai aman
@@ -79,6 +86,7 @@ export function sanitizeHtml(html?: string | null): string {
   return DOMPurify.sanitize(html, {
     ALLOWED_TAGS: CONTENT_TAGS,
     ALLOWED_ATTR: CONTENT_ATTRS,
+    ADD_DATA_URI_TAGS: ["img"],
   })
 }
 
